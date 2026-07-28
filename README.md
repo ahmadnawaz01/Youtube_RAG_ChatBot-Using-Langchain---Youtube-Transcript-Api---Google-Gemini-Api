@@ -20,6 +20,23 @@ Instead of manually searching through long videos, the chatbot retrieves the mos
 - 💾 Persistent chat history using Streamlit Session State
 
 ---
+# ⚠️ Deployment Note
+
+This project relies on **youtube-transcript-api**, which fetches transcripts by making unauthenticated HTTP requests to YouTube.
+
+Cloud hosting providers (such as Streamlit Community Cloud, AWS, Google Cloud, or Vercel) often use shared data-centre IP addresses that may be blocked by YouTube's anti-bot systems.
+
+As a result, transcript retrieval can fail with errors such as:
+
+```
+RequestBlocked
+
+Could not retrieve a transcript
+```
+
+For the most reliable experience, run the application locally using your residential internet connection.
+
+---
 
 # 🚀 Demo Workflow
 
