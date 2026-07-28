@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
@@ -9,6 +10,14 @@ from rag_pipeline import build_rag_chain
 load_dotenv()
 
 app = FastAPI(title="YouTube RAG API", description="API for querying YouTube video transcripts.")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Global variable to hold the active LangChain pipeline in memory
 active_chain = None
