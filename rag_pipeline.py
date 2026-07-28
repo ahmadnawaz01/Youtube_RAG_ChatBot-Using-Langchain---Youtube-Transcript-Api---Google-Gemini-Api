@@ -6,29 +6,36 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 
-def format_docs(retrieved_docs):
-    """Joins the content of retrieved LangChain documents."""
-    return "\n\n".join(doc.page_content for doc in retrieved_docs)
+from utils import format_docs
 
 def build_rag_chain(video_url: str):
-    """Fetches YouTube transcript via LangChain, builds FAISS index, and returns the LCEL chain."""
-    
-    # 1. Load transcript using LangChain's YoutubeLoader
+    """
+    Fetches transcript using LangChain's YoutubeLoader, 
+    splits text into chunks, builds FAISS index, and returns the LCEL chain.
+    """
     try:
-        loader = YoutubeLoader.from_youtube_url(video_url, add_video_info=False)
+        loader = YoutubeLoader.from_youtube_url(
+            video_url, 
+            add_video_info=False,
+            language=["en", "hi", "en-US"]
+        )
         docs = loader.load()
         
-        if not docs:
-            return None, "No transcripts could be extracted from this video."
+        if not docs or len(docs) == 0:
+            return None, "No transcripts could be found for this video."
             
     except Exception as e:
-        return None, f"Error fetching transcript: {str(e)}"
+        error_message = str(e)
+        # Check if it's YouTube's IP block error
+        if "IP" in error_message or "blocked" in error_message or "Could not retrieve a transcript" in error_message:
+            return None, "YouTube is temporarily blocking transcript requests from this network. Please try switching to a mobile hotspot or VPN."
+        return None, f"Error fetching transcript: {error_message}"
 
-    # 2. Split Text chunks
+    # 2. Split Document chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(docs)
 
-    # 3. Create Embeddings & Vector Store
+    # 3. Create Embeddings & FAISS Vector Store
     embeddings = GoogleGenerativeAIEmbeddings(model='gemini-embedding-2')
     vector_store = FAISS.from_documents(chunks, embeddings)
     retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 4})
