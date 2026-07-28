@@ -6,37 +6,34 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 
-
 def format_docs(retrieved_docs):
     """Joins the content of retrieved LangChain documents."""
     return "\n\n".join(doc.page_content for doc in retrieved_docs)
 
 def build_rag_chain(video_url: str):
-    """Fetches transcript using LangChain's YoutubeLoader, builds FAISS index, and returns chain."""
+    """Fetches YouTube transcript via LangChain, builds FAISS index, and returns the LCEL chain."""
     
-    # 1. Fetch Transcript via LangChain Document Loader
+    # 1. Load transcript using LangChain's YoutubeLoader
     try:
-        # add_video_info=False speeds it up if you don't need the title/author metadata
         loader = YoutubeLoader.from_youtube_url(video_url, add_video_info=False)
         docs = loader.load()
         
         if not docs:
-            return None, "No transcript could be extracted from this video."
+            return None, "No transcripts could be extracted from this video."
             
     except Exception as e:
         return None, f"Error fetching transcript: {str(e)}"
 
-    # 2. Split Text
-    # We use split_documents() now because the loader already gives us Document objects
+    # 2. Split Text chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(docs)
 
-    # 3. Embeddings & Vector Store
+    # 3. Create Embeddings & Vector Store
     embeddings = GoogleGenerativeAIEmbeddings(model='gemini-embedding-2')
     vector_store = FAISS.from_documents(chunks, embeddings)
     retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 4})
 
-    # 4. LLM & Prompt
+    # 4. Set up Gemini LLM & Prompt Template
     llm = ChatGoogleGenerativeAI(model='gemini-3.6-flash', temperature=0.2)
     prompt = PromptTemplate(
         template="""
@@ -55,7 +52,7 @@ def build_rag_chain(video_url: str):
         'context': retriever | RunnableLambda(format_docs),
         'question': RunnablePassthrough()
     })
-    parser = StrOutputParser()
-    main_chain = parallel_chain | prompt | llm | parser
+    
+    main_chain = parallel_chain | prompt | llm | StrOutputParser()
 
     return main_chain, "Success"
