@@ -74,3 +74,10 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": response})
                 except Exception as e:
                     st.error(f"Error generating response: {str(e)}")
+
+
+
+
+def format_docs(retrieved_docs):
+    """Joins the content of retrieved LangChain documents."""
+    return "\n\n".join(doc.page_content for doc in retrieved_docs)

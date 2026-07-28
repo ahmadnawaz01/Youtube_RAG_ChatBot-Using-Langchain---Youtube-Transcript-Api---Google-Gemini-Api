@@ -1,4 +1,6 @@
-from langchain_community.document_loaders import YoutubeLoader
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_community.vectorstores import FAISS
@@ -6,32 +8,38 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 
-def format_docs(retrieved_docs):
-    """Joins the content of retrieved LangChain documents."""
-    return "\n\n".join(doc.page_content for doc in retrieved_docs)
+from utils import get_video_id, format_docs
 
 def build_rag_chain(video_url: str):
     """
-    Fetches transcript using LangChain's YoutubeLoader, 
-    splits text into chunks, builds FAISS index, and returns the LCEL chain.
+    Builds the RAG chain using YouTubeTranscriptApi instance fetch method.
     """
+    video_id = get_video_id(video_url)
+    if not video_id:
+        return None, "Invalid YouTube URL."
+
     try:
-        loader = YoutubeLoader.from_youtube_url(
-            video_url, 
-            add_video_info=False,
-            language=["en", "hi", "en-US"]
-        )
-        docs = loader.load()
+        # Use the correct instantiated fetch method
+        ytt_api = YouTubeTranscriptApi()
+        transcript_data = ytt_api.fetch(video_id, languages=['en', 'hi', 'en-US'])
         
-        if not docs or len(docs) == 0:
-            return None, "No transcripts could be found for this video."
+        # Convert fetched snippet items into a single continuous text string
+        full_text = " ".join(item.text for item in transcript_data)
+        
+        if not full_text.strip():
+            return None, "Retrieved transcript is empty."
             
+        docs = [Document(page_content=full_text)]
+            
+    except TranscriptsDisabled:
+        return None, "Transcripts are disabled for this video."
+    except NoTranscriptFound:
+        return None, "No suitable transcript found for this video."
     except Exception as e:
-        error_message = str(e)
-        # Check if it's YouTube's IP block error
-        if "IP" in error_message or "blocked" in error_message or "Could not retrieve a transcript" in error_message:
-            return None, "YouTube is temporarily blocking transcript requests from this network. Please try switching to a mobile hotspot or VPN."
-        return None, f"Error fetching transcript: {error_message}"
+        error_msg = str(e)
+        if "IP" in error_msg or "blocked" in error_msg or "RequestBlocked" in error_msg:
+            return None, "YouTube is temporarily blocking requests from this network. Try switching networks."
+        return None, f"Error fetching transcript: {error_msg}"
 
     # 2. Split Document chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
