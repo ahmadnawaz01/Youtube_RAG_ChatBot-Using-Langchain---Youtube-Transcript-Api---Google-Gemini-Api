@@ -1,7 +1,6 @@
 import urllib.parse as urlparse
 
 def get_video_id(url: str) -> str | None:
-    """Extracts the YouTube video ID from various standard or shortened URL formats."""
     parsed_url = urlparse.urlparse(url)
     
     if parsed_url.hostname in ('youtu.be', 'www.youtu.be'):
@@ -16,5 +15,4 @@ def get_video_id(url: str) -> str | None:
     return None
 
 def format_docs(retrieved_docs) -> str:
-    """Joins the content of retrieved LangChain documents into a single text block."""
     return "\n\n".join(doc.page_content for doc in retrieved_docs)

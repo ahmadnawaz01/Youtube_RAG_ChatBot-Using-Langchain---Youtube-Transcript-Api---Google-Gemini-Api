@@ -35,6 +35,12 @@ with st.sidebar:
             else:
                 st.error(status_msg)
 
+    st.write("---")
+    
+    if st.button("Clear App Cache"):
+        st.cache_resource.clear()
+        st.success("Cache cleared!")
+
 # Initialize Session State variables
 if "messages" not in st.session_state:
     st.session_state.messages = []
